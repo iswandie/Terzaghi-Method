@@ -1,4 +1,6 @@
 import unittest
+import json
+from pathlib import Path
 
 from api.app import app
 from tests.test_settlement_engine import valid_payload
@@ -59,8 +61,8 @@ class ApiWorkflowTests(unittest.TestCase):
             response.close()
 
     def test_static_assets_are_served(self):
-        stylesheet = self.client.get("/styles.css")
-        javascript = self.client.get("/app.js")
+        stylesheet = self.client.get("/static/styles.css")
+        javascript = self.client.get("/static/app.js")
         try:
             self.assertEqual(stylesheet.status_code, 200)
             self.assertIn("text/css", stylesheet.content_type)
@@ -74,6 +76,34 @@ class ApiWorkflowTests(unittest.TestCase):
         response = self.client.get("/missing-file.css")
 
         self.assertEqual(response.status_code, 404)
+
+    def test_index_uses_relative_same_origin_static_assets(self):
+        response = self.client.get("/")
+        try:
+            html = response.get_data(as_text=True)
+            self.assertIn('href="./static/styles.css"', html)
+            self.assertIn('src="./static/app.js"', html)
+        finally:
+            response.close()
+
+    def test_vercel_routes_api_before_spa_catch_all(self):
+        config = json.loads(Path("vercel.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(config["routes"], [
+            {"src": "/api/(.*)", "dest": "/api/app.py"},
+            {"src": "/(.*)", "dest": "/api/app.py"},
+        ])
+
+    def test_navigation_script_is_delivered_with_session_restore(self):
+        response = self.client.get("/static/app.js")
+        try:
+            script = response.get_data(as_text=True)
+            self.assertIn("function navigateToSection", script)
+            self.assertIn("event.preventDefault()", script)
+            self.assertIn("sessionStorage.setItem", script)
+            self.assertIn("restoreAnalysisSession()", script)
+        finally:
+            response.close()
 
 
 if __name__ == "__main__":

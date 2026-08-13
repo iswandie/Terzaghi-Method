@@ -3,6 +3,8 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const state = { result: null, payload: null };
+const RESULT_SECTION_IDS = new Set(["results", "calculation-details", "report"]);
+const SESSION_RESULT_KEY = "terrasettle.analysisResult";
 
 const labels = {
   name: "Layer Name", description: "Soil Description", thickness: "Compressible layer thickness H",
@@ -28,6 +30,48 @@ function formatTime(number) {
   if (number >= 1000) return format(number, 0);
   if (number >= 10) return format(number, 1);
   return format(number, 2);
+}
+
+function saveAnalysisSession(result, payload) {
+  try {
+    sessionStorage.setItem(SESSION_RESULT_KEY, JSON.stringify({ result, payload }));
+  } catch (error) {
+    console.warn("Analysis results could not be saved for this browser session.", error);
+  }
+}
+
+function restoreAnalysisSession() {
+  try {
+    const saved = sessionStorage.getItem(SESSION_RESULT_KEY);
+    if (!saved) return false;
+    const restored = JSON.parse(saved);
+    if (!restored?.result?.summary || !restored?.payload?.project) return false;
+    state.result = restored.result;
+    state.payload = restored.payload;
+    renderResults(restored.result, restored.payload);
+    return true;
+  } catch (error) {
+    sessionStorage.removeItem(SESSION_RESULT_KEY);
+    console.warn("Saved analysis results could not be restored.", error);
+    return false;
+  }
+}
+
+function navigateToSection(id, updateHash = true) {
+  const target = document.getElementById(id);
+  if (!target) return;
+  if (RESULT_SECTION_IDS.has(id) && target.hidden) {
+    showAlert("Run a valid analysis before opening result sections.");
+    $("#analysis-form").scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (updateHash && window.location.hash !== `#${id}`) {
+    history.replaceState(null, "", `#${id}`);
+  }
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
+  $$(".sidebar nav a").forEach(link => {
+    link.classList.toggle("active", link.getAttribute("href") === `#${id}`);
+  });
 }
 
 function addLayer(data = {}) {
@@ -254,9 +298,10 @@ async function runAnalysis(event) {
     if (!response.ok) { applyServerErrors(result.errors || { analysis: result.message }); return; }
     state.result = result; state.payload = payload;
     renderResults(result, payload);
-    $("#results").scrollIntoView({ behavior: "smooth", block: "start" });
+    saveAnalysisSession(result, payload);
+    navigateToSection("results");
   } catch (error) {
-    showAlert("Unable to contact the calculation engine. Start the application with ‘python app.py’ and try again.");
+    showAlert("Unable to contact the calculation engine. Check the deployment and try again.");
   } finally {
     submitters.forEach(button => { button.disabled = false; button.textContent = button.dataset.label; });
   }
@@ -394,6 +439,12 @@ function initialize() {
   ["#unit-length", "#unit-stress", "#unit-cv", "#unit-time"].forEach(id => $(id).addEventListener("change", updateUnits));
   $$(`input, select, textarea`, $("#analysis-form")).forEach(input => input.addEventListener("input", () => clearFieldError(input)));
   $$(".print-action").forEach(button => button.addEventListener("click", () => window.print()));
+  $$(".sidebar nav a, .brand").forEach(link => link.addEventListener("click", event => {
+    const id = link.getAttribute("href")?.replace(/^#/, "");
+    if (!id) return;
+    event.preventDefault();
+    navigateToSection(id);
+  }));
   const observer = new IntersectionObserver(entries => entries.forEach(entry => {
     if (entry.isIntersecting) {
       $$(".sidebar nav a").forEach(link => link.classList.toggle("active", link.getAttribute("href") === `#${entry.target.id}`));
@@ -401,6 +452,9 @@ function initialize() {
   }), { rootMargin: "-20% 0px -70% 0px" });
   $$(".anchor").forEach(section => observer.observe(section));
   updateLoadingMode(); updateUnits();
+  restoreAnalysisSession();
+  const initialId = window.location.hash.replace(/^#/, "");
+  if (initialId) requestAnimationFrame(() => navigateToSection(initialId, false));
 }
 
 initialize();

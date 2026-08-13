@@ -10,7 +10,7 @@ from werkzeug.exceptions import BadRequest, RequestEntityTooLarge, UnsupportedMe
 from settlement_engine import EngineeringValidationError, analyze_settlement
 
 
-app = Flask(__name__, static_folder="../static", static_url_path="")
+app = Flask(__name__, static_folder="../static", static_url_path="/static")
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
