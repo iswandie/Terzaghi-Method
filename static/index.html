@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Auditable Terzaghi one-dimensional consolidation settlement analysis">
+  <title>TerraSettle | Terzaghi Settlement Analysis</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#dashboard" aria-label="TerraSettle home">
+      <span class="brand-mark">T</span>
+      <span><strong>TerraSettle</strong><small>Geotechnical Analysis Suite</small></span>
+    </a>
+    <div class="top-actions">
+      <span class="status-dot"><i></i> SI calculation engine</span>
+      <button type="button" class="button ghost print-action" disabled>Print report</button>
+      <button type="submit" form="analysis-form" class="button primary">Run analysis</button>
+    </div>
+  </header>
+
+  <aside class="sidebar" aria-label="Analysis navigation">
+    <p class="nav-label">Workspace</p>
+    <nav>
+      <a href="#dashboard" class="active"><span>01</span> Dashboard</a>
+      <a href="#project"><span>02</span> Project</a>
+      <a href="#soil-profile"><span>03</span> Soil Profile</a>
+      <a href="#groundwater"><span>04</span> Groundwater</a>
+      <a href="#loading"><span>05</span> Loading</a>
+      <a href="#consolidation"><span>06</span> Consolidation Time</a>
+      <a href="#results"><span>07</span> Results</a>
+      <a href="#calculation-details"><span>08</span> Calculation Details</a>
+      <a href="#report"><span>09</span> Report</a>
+    </nav>
+    <div class="theory-badge">
+      <small>ANALYSIS BASIS</small>
+      <strong>Terzaghi 1-D</strong>
+      <p>Primary consolidation with vertical drainage.</p>
+    </div>
+  </aside>
+
+  <main>
+    <form id="analysis-form" novalidate>
+      <section id="dashboard" class="hero anchor">
+        <div>
+          <p class="eyebrow">Settlement Analysis / New Calculation</p>
+          <h1>Terzaghi Settlement<br><em>Analysis System</em></h1>
+          <p class="hero-copy">Layer-by-layer effective stress, primary consolidation settlement, and time-rate analysis—with every equation visible for independent engineering review.</p>
+        </div>
+        <div class="hero-equation" aria-label="Terzaghi settlement equation">
+          <span>PRIMARY CONSOLIDATION</span>
+          <strong>S<sub>c</sub> = <span>C<sub>c</sub>H</span> / <span>1 + e<sub>0</sub></span> · log<sub>10</sub>(σ′<sub>f</sub> / σ′<sub>0</sub>)</strong>
+          <small>Normally consolidated soil</small>
+        </div>
+      </section>
+
+      <div id="form-alert" class="alert error" role="alert" hidden></div>
+
+      <section id="project" class="panel anchor">
+        <div class="section-heading">
+          <div><span class="section-number">01</span><p class="eyebrow">Identification</p><h2>Project Information</h2></div>
+          <p>Document the calculation context for traceability.</p>
+        </div>
+        <div class="form-grid three">
+          <label class="field span-2">Project Name <b>*</b>
+            <input id="project-name" data-path="project.name" autocomplete="organization" placeholder="e.g. Riverside Logistics Center">
+            <span class="field-error"></span>
+          </label>
+          <label class="field">Project ID
+            <input id="project-id" placeholder="e.g. GEO-2026-014">
+          </label>
+          <label class="field">Location
+            <input id="project-location" placeholder="City, State / Coordinates">
+          </label>
+          <label class="field">Engineer / Designer
+            <input id="project-engineer" autocomplete="name" placeholder="Name and credentials">
+          </label>
+          <label class="field">Date
+            <input id="project-date" type="date">
+          </label>
+          <label class="field span-3">Description
+            <textarea id="project-description" rows="3" placeholder="Purpose, structure, and analysis scope"></textarea>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel compact anchor" id="units">
+        <div class="section-heading inline">
+          <div><span class="section-number">02</span><p class="eyebrow">Input system</p><h2>Engineering Units</h2></div>
+          <p>Inputs are converted to SI before calculation. Results use kPa, m, mm, and the selected time unit.</p>
+        </div>
+        <div class="form-grid four unit-grid">
+          <label class="field">Length
+            <select id="unit-length"><option value="m">metres (m)</option><option value="mm">millimetres (mm)</option></select>
+          </label>
+          <label class="field">Stress
+            <select id="unit-stress"><option value="kPa">kilopascals (kPa)</option><option value="MPa">megapascals (MPa)</option></select>
+          </label>
+          <label class="field">Coefficient Cv
+            <select id="unit-cv"><option value="m2/year">m²/year</option><option value="m2/day">m²/day</option></select>
+          </label>
+          <label class="field">Time
+            <select id="unit-time"><option value="years">years</option><option value="months">months</option><option value="days">days</option></select>
+          </label>
+        </div>
+      </section>
+
+      <section id="soil-profile" class="panel anchor">
+        <div class="section-heading">
+          <div><span class="section-number">03</span><p class="eyebrow">Subsurface model</p><h2>Soil Profile</h2></div>
+          <p>Layers are contiguous from ground level. Stresses and settlements are evaluated independently at each layer midpoint.</p>
+        </div>
+        <div id="layers-container"></div>
+        <button type="button" id="add-layer" class="button dashed">＋ Add compressible layer</button>
+      </section>
+
+      <div class="split-panels">
+        <section id="groundwater" class="panel anchor">
+          <div class="section-heading small">
+            <div><span class="section-number">04</span><p class="eyebrow">Hydrostatic condition</p><h2>Groundwater</h2></div>
+          </div>
+          <div class="form-grid two">
+            <label class="field">Water table depth <b>*</b>
+              <div class="input-unit"><input id="gwt-depth" type="number" step="any" min="0" data-path="groundwater.depth"><span data-length-unit>m</span></div>
+              <span class="field-error"></span>
+            </label>
+            <label class="field">Unit weight of water γw <b>*</b>
+              <div class="input-unit"><input id="gamma-water" type="number" step="any" min="0.000001" value="9.81" data-path="groundwater.gammaWater"><span>kN/m³</span></div>
+              <span class="field-error"></span>
+            </label>
+          </div>
+          <div class="formula-note"><strong>u₀ = γw × z<sub>w</sub></strong><span>Pore pressure is zero above the groundwater table.</span></div>
+        </section>
+
+        <section id="loading" class="panel anchor">
+          <div class="section-heading small">
+            <div><span class="section-number">05</span><p class="eyebrow">Applied action</p><h2>Loading</h2></div>
+          </div>
+          <fieldset class="segmented" id="load-type">
+            <legend class="sr-only">Loading type</legend>
+            <label><input type="radio" name="load-type" value="uniform" checked><span>Uniform surcharge</span></label>
+            <label><input type="radio" name="load-type" value="foundation"><span>Rectangular foundation</span></label>
+          </fieldset>
+          <div class="form-grid two loading-fields">
+            <label class="field">Applied pressure q <b>*</b>
+              <div class="input-unit"><input id="load-q" type="number" step="any" min="0.000001" data-path="loading.q"><span data-stress-unit>kPa</span></div>
+              <span class="field-error"></span>
+            </label>
+            <label class="field foundation-only" hidden>Method <b>*</b>
+              <select id="load-method" data-path="loading.method"><option value="2:1">2:1 stress distribution</option></select>
+              <span class="field-error"></span>
+            </label>
+            <label class="field foundation-only" hidden>Foundation width B <b>*</b>
+              <div class="input-unit"><input id="foundation-width" type="number" step="any" min="0.000001" data-path="loading.width"><span data-length-unit>m</span></div>
+              <span class="field-error"></span>
+            </label>
+            <label class="field foundation-only" hidden>Foundation length L <b>*</b>
+              <div class="input-unit"><input id="foundation-length" type="number" step="any" min="0.000001" data-path="loading.length"><span data-length-unit>m</span></div>
+              <span class="field-error"></span>
+            </label>
+            <label class="field foundation-only" hidden>Embedment depth Df <b>*</b>
+              <div class="input-unit"><input id="foundation-depth" type="number" step="any" min="0" data-path="loading.embedmentDepth"><span data-length-unit>m</span></div>
+              <span class="field-error"></span>
+            </label>
+          </div>
+          <div id="load-equation" class="formula-note"><strong>Δσ<sub>z</sub> = q</strong><span>Uniform stress increase at every layer midpoint.</span></div>
+        </section>
+      </div>
+
+      <section id="consolidation" class="panel anchor">
+        <div class="section-heading">
+          <div><span class="section-number">06</span><p class="eyebrow">Time-rate response</p><h2>Consolidation Time</h2></div>
+          <p>Cv and drainage condition are mandatory for every layer. Enter a time to calculate U and a target U to calculate required time.</p>
+        </div>
+        <div class="form-grid two">
+          <label class="field">Specified elapsed time <b>*</b>
+            <div class="input-unit"><input id="selected-time" type="number" step="any" min="0" data-path="analysis.selectedTime"><span data-time-unit>years</span></div>
+            <span class="field-error"></span>
+          </label>
+          <label class="field">Target degree of consolidation U <b>*</b>
+            <div class="input-unit"><input id="target-degree" type="number" step="any" min="0.000001" max="99.999999" data-path="analysis.targetDegree"><span>%</span></div>
+            <span class="field-error"></span>
+          </label>
+        </div>
+        <div class="theory-strip">
+          <div><small>TIME FACTOR</small><strong>T<sub>v</sub> = C<sub>v</sub>t / H<sub>dr</sub>²</strong></div>
+          <div><small>EARLY CONSOLIDATION (U ≤ 60%)</small><strong>T<sub>v</sub> = πU² / 4</strong></div>
+          <div><small>HIGHER CONSOLIDATION</small><strong>Terzaghi series solution</strong></div>
+        </div>
+      </section>
+
+      <div class="run-panel">
+        <div><strong>Ready for engineering analysis?</strong><span>All mandatory inputs are checked before any calculation is performed.</span></div>
+        <button class="button primary large" type="submit"><span>Run Terzaghi Analysis</span> →</button>
+      </div>
+    </form>
+
+    <section id="results" class="results-area anchor" hidden>
+      <div class="results-header">
+        <div><p class="eyebrow">Calculation complete</p><h2>Engineering Results</h2><p id="result-project"></p></div>
+        <div><span class="verified-badge">✓ Inputs validated</span><button type="button" class="button ghost print-action">Print report</button></div>
+      </div>
+      <div id="warnings"></div>
+      <div id="key-results" class="metric-grid"></div>
+
+      <section class="panel result-panel">
+        <div class="section-heading small"><div><p class="eyebrow">Stress & settlement</p><h2>Layer-by-Layer Results</h2></div><p>Values at each layer midpoint.</p></div>
+        <div class="table-wrap"><table><thead><tr><th>Layer</th><th>Mid-depth<br>(m)</th><th>σv₀<br>(kPa)</th><th>u₀<br>(kPa)</th><th>σ′₀<br>(kPa)</th><th>Δσz<br>(kPa)</th><th>σ′f<br>(kPa)</th><th>Recomp.<br>(mm)</th><th>Virgin<br>(mm)</th><th>Sc<br>(mm)</th></tr></thead><tbody id="layer-results-body"></tbody></table></div>
+      </section>
+
+      <div class="chart-grid">
+        <section class="panel result-panel">
+          <div class="chart-heading"><div><p class="eyebrow">Time-rate curve</p><h3>Settlement vs Time</h3></div><span class="legend settlement">Primary settlement</span></div>
+          <canvas id="settlement-chart" width="720" height="380" aria-label="Settlement versus time graph"></canvas>
+        </section>
+        <section class="panel result-panel">
+          <div class="chart-heading"><div><p class="eyebrow">Consolidation response</p><h3>Degree of Consolidation</h3></div><span class="legend degree">Average U</span></div>
+          <canvas id="degree-chart" width="720" height="380" aria-label="Degree of consolidation versus time graph"></canvas>
+        </section>
+      </div>
+
+      <section class="panel result-panel">
+        <div class="section-heading small"><div><p class="eyebrow">Generated schedule</p><h2>Settlement–Time Table</h2></div></div>
+        <div class="table-wrap tall"><table><thead><tr><th>Time</th><th>Unit</th><th>Tv range*</th><th>Average U</th><th>Settlement St</th></tr></thead><tbody id="time-results-body"></tbody></table></div>
+        <p class="table-note">* Tv differs by layer where Cv, thickness, or drainage conditions differ. The range reports minimum–maximum layer Tv.</p>
+      </section>
+    </section>
+
+    <section id="calculation-details" class="panel result-panel anchor" hidden>
+      <div class="section-heading"><div><span class="section-number">07</span><p class="eyebrow">Independent verification</p><h2>Calculation Details</h2></div><p>Formula, numerical substitution, result, and units for every layer.</p></div>
+      <div id="details-list" class="details-list"></div>
+    </section>
+
+    <section id="report" class="panel result-panel report anchor" hidden>
+      <div class="report-title"><div class="brand-mark">T</div><div><p>ENGINEERING CALCULATION REPORT</p><h2>Terzaghi 1-D Consolidation</h2></div><div id="report-meta"></div></div>
+      <div id="report-content"></div>
+    </section>
+
+    <section id="assumptions" class="panel assumptions anchor">
+      <div class="section-heading"><div><p class="eyebrow">Engineering safety</p><h2>Assumptions & Limitations</h2></div></div>
+      <div class="safety-callout"><strong>Professional review required</strong><p>This tool supports engineering calculations; it does not replace site characterization, parameter selection, or review by a qualified geotechnical engineer. Results are not automatically suitable for construction.</p></div>
+      <ul id="assumptions-list">
+        <li>Terzaghi one-dimensional primary consolidation theory is used.</li>
+        <li>Immediate settlement: <strong>Not included in this analysis.</strong></li>
+        <li>Secondary settlement: <strong>Not included in this analysis.</strong></li>
+      </ul>
+    </section>
+  </main>
+
+  <template id="layer-template">
+    <article class="layer-card">
+      <header><div><span class="layer-index"></span><div><h3>Soil Layer</h3><p>Compressible stratum</p></div></div><button type="button" class="icon-button remove-layer" aria-label="Remove layer">×</button></header>
+      <div class="form-grid four layer-fields">
+        <label class="field">Layer Name <b>*</b><input class="layer-name" data-field="name" placeholder="e.g. Upper clay"><span class="field-error"></span></label>
+        <label class="field span-2">Soil Description <b>*</b><input data-field="description" placeholder="Classification, consistency, notes"><span class="field-error"></span></label>
+        <label class="field">Soil Condition <b>*</b><select data-field="condition"><option value="">Select…</option><option value="NC">Normally consolidated (NC)</option><option value="OC">Overconsolidated (OC)</option></select><span class="field-error"></span></label>
+        <label class="field">Thickness H <b>*</b><div class="input-unit"><input data-field="thickness" type="number" step="any" min="0.000001"><span data-length-unit>m</span></div><span class="field-error"></span></label>
+        <label class="field">Total unit weight γ <b>*</b><div class="input-unit"><input data-field="unitWeight" type="number" step="any" min="0.000001"><span>kN/m³</span></div><span class="field-error"></span></label>
+        <label class="field">Saturated unit weight γsat <b>*</b><div class="input-unit"><input data-field="saturatedUnitWeight" type="number" step="any" min="0.000001"><span>kN/m³</span></div><span class="field-error"></span></label>
+        <label class="field">Initial void ratio e₀ <b>*</b><input data-field="voidRatio" type="number" step="any" min="0"><span class="field-error"></span></label>
+        <label class="field">Compression index Cc <b>*</b><input data-field="compressionIndex" type="number" step="any" min="0.000001"><span class="field-error"></span></label>
+        <label class="field">Coefficient Cv <b>*</b><div class="input-unit"><input data-field="cv" type="number" step="any" min="0.000001"><span data-cv-unit>m²/year</span></div><span class="field-error"></span></label>
+        <label class="field">Drainage condition <b>*</b><select data-field="drainage"><option value="">Select…</option><option value="single">Single drainage (Hdr = H)</option><option value="double">Double drainage (Hdr = H/2)</option></select><span class="field-error"></span></label>
+        <label class="field oc-only" hidden>Preconsolidation pressure σ′p <b>*</b><div class="input-unit"><input data-field="preconsolidationPressure" type="number" step="any" min="0.000001"><span data-stress-unit>kPa</span></div><span class="field-error"></span></label>
+        <label class="field oc-only" hidden>Recompression index Cr / Cs <b>*</b><input data-field="recompressionIndex" type="number" step="any" min="0.000001"><span class="field-error"></span></label>
+      </div>
+      <div class="layer-foot"><span>Evaluation depth: calculated at layer midpoint</span><span class="drainage-preview">Select drainage to establish Hdr</span></div>
+    </article>
+  </template>
+</body>
+</html>
