@@ -45,6 +45,7 @@ def analyze():
 def serve(path):
     if path == "":
         path = "index.html"
+    print(f"Serving static file: {path}")
     file_path = STATIC / path
     if file_path.exists() and file_path.is_file():
         return send_from_directory(STATIC, path)

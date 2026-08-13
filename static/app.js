@@ -3,7 +3,6 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const state = { result: null, payload: null };
-const RESULT_SECTION_IDS = new Set(["results", "calculation-details", "report"]);
 const SESSION_RESULT_KEY = "terrasettle.analysisResult";
 
 const labels = {
@@ -60,11 +59,7 @@ function restoreAnalysisSession() {
 function navigateToSection(id, updateHash = true) {
   const target = document.getElementById(id);
   if (!target) return;
-  if (RESULT_SECTION_IDS.has(id) && target.hidden) {
-    showAlert("Run a valid analysis before opening result sections.");
-    $("#analysis-form").scrollIntoView({ behavior: "smooth", block: "start" });
-    return;
-  }
+  target.hidden = false;
   if (updateHash && window.location.hash !== `#${id}`) {
     history.replaceState(null, "", `#${id}`);
   }

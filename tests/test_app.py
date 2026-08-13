@@ -81,8 +81,8 @@ class ApiWorkflowTests(unittest.TestCase):
         response = self.client.get("/")
         try:
             html = response.get_data(as_text=True)
-            self.assertIn('href="./static/styles.css"', html)
-            self.assertIn('src="./static/app.js"', html)
+            self.assertIn('href="static/styles.css"', html)
+            self.assertIn('src="static/app.js"', html)
         finally:
             response.close()
 
@@ -100,6 +100,8 @@ class ApiWorkflowTests(unittest.TestCase):
             script = response.get_data(as_text=True)
             self.assertIn("function navigateToSection", script)
             self.assertIn("event.preventDefault()", script)
+            self.assertIn("target.hidden = false", script)
+            self.assertNotIn("Run a valid analysis before opening result sections", script)
             self.assertIn("sessionStorage.setItem", script)
             self.assertIn("restoreAnalysisSession()", script)
         finally:
